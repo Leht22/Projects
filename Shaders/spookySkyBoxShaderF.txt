@@ -1,0 +1,112 @@
+#version 330 core
+layout (location = 0) out vec4 FragColor;
+layout (location = 1) out vec4 BrightColor;
+
+in vec3 TexCoords;
+
+#define NUM_LIGHTS 3
+#define FAR_PLANE 500.0f
+#define DENSITY 0.3f
+
+uniform samplerCube skybox;
+
+uniform vec3 lightPoss[NUM_LIGHTS];  //Poss - positions
+uniform vec3 lightCols[NUM_LIGHTS];  //Cols - colors
+
+uniform vec3 viewPos;
+
+//if replacement, when x is less than y.  1.0 for true  0.0 for false
+float when_lt(float x, float y) 
+{
+  return max(sign(y - x), 0.0);
+}
+
+//using the index into the light arrays, return the amount of fog at our fragment
+float LightFog( int light )
+{
+	//need to have the camera position, the fragment position and all the light positions
+	//'int light' is the index into the lightPositions array
+
+	//TexCoords for a sky box render are equal to the fragment position
+	vec3 viewDir = normalize( TexCoords );
+	vec3 B = viewPos + viewDir * FAR_PLANE;
+	vec3 A = viewPos;
+	vec3 P = lightPoss[light];
+
+	//find the distance from the light position to the view vector
+	vec3 AB = B - A;
+	vec3 AP = P - A;
+	float area = length( cross( AB , AP ) );
+	float ABlength = length( AB );
+	float H = area / ABlength;               //distance from the line to the light point     
+
+	//find the closest point on the view vector to the light
+	vec3 ABnorm = normalize(AB);
+	float DOT = dot( ABnorm , AP );
+	vec3 Z = A + ABnorm * DOT;    //closest point on the line to the light point
+	vec3 ZA = A - Z;
+	vec3 ZB = B - Z;
+
+	//to avoid division by zero, may not even be necessary
+	if( H < 0.000000001 ) return when_lt( 0.0f , DOT );
+
+	//these will be negative if the light is behind the camera or beyond the fragment
+	float ZAsign = sign( DOT );
+	float ZBsign = sign( ABlength - DOT );
+
+	//these will tell us how much fog to add to the pixel
+	float ZAintegral = atan( length(ZA)/H ) / H;
+	float ZBintegral = atan( length(ZB)/H ) / H;
+
+	//if the light is behind or beyond, the negative signs will cancel the double additions that would happen
+	float result = ZAintegral * ZAsign  +  ZBintegral * ZBsign;
+
+	return result;
+
+}
+
+void main()
+{
+    vec3  color        = texture(skybox , TexCoords ).rgb;
+    float fogAmount    = 0.0f;
+    vec3  fogColor     = vec3(0.0f);
+
+    for( int i = 0; i < NUM_LIGHTS; ++i )
+    {
+	fogAmount = LightFog( i );
+	fogColor += DENSITY * fogAmount * lightCols[i];
+    }
+
+    vec3 lighting   = color + fogColor;
+
+    FragColor = vec4( lighting , 1.0f );
+    BrightColor = vec4( 0.0 , 0.0 , 0.0 , 1.0 );  //not currently using bloom for my sky box's
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
