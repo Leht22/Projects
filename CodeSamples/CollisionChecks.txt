@@ -1,0 +1,88 @@
+//returns whether the passed in floats have the same sign
+inline bool sameSign(float a, float b) 
+{
+    return a*b >= 0.0f;
+}
+
+//given 2 points on a line return the closest distance from point to the line
+//line is assumed to be infinite, a different function is necesarry with line segments
+inline float linePointDistance( glm::vec3& lineStart , glm::vec3& lineEnd , glm::vec3& point )
+{
+	glm::vec3 AB = glm::vec3( lineEnd - lineStart );
+	glm::vec3 AL = glm::vec3( point - lineStart );
+	float area = glm::length( glm::cross( AB , AL ) );
+	float distance = area / glm::length( AB );
+
+	return distance;
+}
+
+//given points A and B on a line, and point P in space
+//return the closest point on infinite line AB to point P
+glm::vec3 linePointClosest( glm::vec3 A , glm::vec3 B , glm::vec3 P )
+{
+	glm::vec3 AB = glm::normalize( B - A );
+	glm::vec3 AP = P - A;
+	return A + AB * glm::dot( AB , AP );
+}
+
+//vector in is the vector we want to reflect, n is the normal of the plane we're reflecting off of
+//returns reflected direction vector without normalizing it, so it should have the same speed that the incoming vector does
+glm::vec3 reflect( glm::vec3 in , glm::vec3 n )
+{
+	glm::vec3 N = glm::normalize(n);
+	return in - 2 * ( glm::dot(in , N) ) * N;
+}
+
+//normal is the plane normal , intersect is the point we're bouncing off of , lineEnd is the end point of the line going through the plane
+//returns the position of the vector after bouncing off the plane
+glm::vec3 bounce( glm::vec3 normal , glm::vec3 intersect , glm::vec3 lineEnd )
+{
+	glm::vec3 reflected = reflect( lineEnd - intersect , normal );
+	glm::vec3 rnorm = glm::normalize( reflected );
+	glm::vec3 afterBounce = intersect + rnorm * glm::length( lineEnd - intersect );
+	return afterBounce;
+}
+
+//given a line origin Lo, a line end Le , a plane normal n , and a point on the plane Po
+//returns whether the line intersects the plane and stores the result in intersect
+bool linePlaneIntersect( glm::vec3 Lo , glm::vec3 Le , glm::vec3 N , glm::vec3 Po , glm::vec3& intersect ) 
+{
+	glm::vec3 n = glm::normalize( N );
+	glm::vec3 Lvec = Le - Lo;
+	if( fabs(glm::dot(Lvec , n )) <= 0.000001f ) return false; //so we don't divide by zero and because the lines are basically parallel
+	float d = ( glm::dot( (Po-Lo) , n ) ) / ( glm::dot( Lvec , n ) );
+	intersect = Lo + Lvec * d;
+
+	return true;
+}
+
+//Lo is the line origin, Le is the line end, tri is the triangle, intersect will have the intersection point of the line with the triangle if it exists
+//returns whether there was an intersection, true for yes and false for no
+bool lineTriangleIntersect( glm::vec3 Lo , glm::vec3 Le , CTriangle tri , glm::vec3& intersect )
+{
+	glm::vec3 L = Le - Lo;											 //L is the vec from the start of the line to the end of the line
+	if( fabs(glm::dot(L , tri.normal )) <= 0.000001f ) return false; //so we don't divide by zero and because the lines are basically parallel
+	float sd = glm::dot( Lo - tri.Ta , tri.normal );				 //distance from the start of the line to the plane
+	float ed = glm::dot( Le - tri.Ta , tri.normal );;				 //distance from the end of the line to the plane
+	//if the distances have the same sign then there was no collision with the plane
+	if( sameSign( sd , ed ) ) return false;
+	if( sd > ed ) cout << "collision from the front" << endl;
+	else return false;
+
+	//find the intersect point with the plane
+	if( linePlaneIntersect( Lo , Le , tri.normal , tri.Ta , intersect ) == false ) return false; //perpendicular case, intersect won't have anything useful if false
+
+	//is the intersect point inside the triangle?
+	glm::vec3 Labn = glm::cross( (tri.Tb - tri.Ta)  , tri.normal );
+	glm::vec3 Lbcn = glm::cross( (tri.Tc - tri.Tb)  , tri.normal );
+	glm::vec3 Lcan = glm::cross( (tri.Ta - tri.Tc)  , tri.normal );
+
+	float d = glm::dot( intersect - tri.Ta , Labn );
+	if( d > 0 ) return false;
+	d = glm::dot( intersect - tri.Tb , Lbcn );
+	if( d > 0 ) return false;
+	d = glm::dot( intersect - tri.Tc , Lcan );
+	if( d > 0 ) return false;
+	   
+	return true;
+}

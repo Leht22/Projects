@@ -1,0 +1,44 @@
+//fragment shader for the screen
+
+#version 330 core
+
+out vec4 FragColor;
+
+in vec2 TexCoords;
+
+uniform sampler2D screenTexture;
+uniform sampler2D bloomTexture;
+uniform sampler2D smallBloomTexture;
+uniform sampler2D distortionTexture;
+
+uniform bool  bloom;
+uniform float bloomIntensity;
+uniform float exposure;
+uniform float gamma;
+uniform float time;
+
+//SatVal = 1 is normal saturation, <1 is desaturated, >1 is super saturated, negative inverts the colors
+vec3 Saturate( vec3 In , float SatVal )
+{
+	float luma = dot( In , vec3(0.2126729,0.7151522,0.0721750) );
+	return luma + vec3(SatVal) * ( In - luma );
+}
+
+void main()
+{
+	//distort the screen based off of a texture
+	float distortion = texture( distortionTexture , vec2(TexCoords.x * (1440./810.) - (7./18.) , TexCoords.y) ).r;
+	float scale = 0.50 * abs( sin( time ) );
+	vec2 distorter = distortion * vec2( scale , scale );
+	
+	//distort the textures
+	vec3 hdrColor = texture( screenTexture , TexCoords + distorter ).rgb;
+	vec3 bloomColor = texture( bloomTexture , TexCoords + distorter ).rgb * bloomIntensity;
+	bloomColor += texture( smallBloomTexture , TexCoords + distorter ).rgb * bloomIntensity;
+	hdrColor += bloomColor;
+
+	//gamma and brightness adjust
+	vec3 result = vec3(1.0f) - exp(-hdrColor * exposure);
+	result = pow( result , vec3( gamma ) );
+	FragColor = vec4( result , 1.0f );
+}

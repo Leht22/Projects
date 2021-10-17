@@ -1,0 +1,272 @@
+//sample code for a level load from a file  //created ~2013
+
+void CLevelFromData::Load( CGameApp* game )
+{
+	//do we even have a game?
+	if( game == NULL )
+	{
+		cout << "game was null" << endl;
+		exit(0);
+	}
+	SetGame( game );
+	srand( Game->CurrentTime );
+
+	//delete old player data
+	if(Game->Player)
+	{
+		for( int i = 0; i < Game->NumPlayers; i++ )
+		{
+			delete Game->Player[i];
+			Game->Player[i] = NULL;
+		}
+		delete[] Game->Player;
+		Game->Player = NULL;
+	}
+
+	//create new player data and initialize
+	Game->NumPlayers = Game->GetNumPlayers();
+	Game->Player = new CPlayer*[Game->NumPlayers];
+	for( int i = 0; i < Game->NumPlayers; i++ )
+	{
+		Game->Player[i] = new CPlayer();
+		Game->Player[i]->GamePad = new CXBOXController(i+1);		
+
+		Game->Player[i]->SetGame( Game );
+		Game->Player[i]->Load();
+		Game->Player[i]->EquipPrimary( new CWeapon( 6 , 2 ) );
+		Game->Player[i]->PrimaryWeapon->SetBulletSpeed( 15.0f );
+		Game->Player[i]->SetSize( Game->Player[i]->GetSize() );
+		Game->Player[i]->SetHealth( 30 );
+		Game->Player[i]->SetMaxHealth( Game->Player[i]->GetHealth() );
+	}
+	Game->Player[0]->SetTexture( Game->PlayerTexture.texID );
+	if( Game->NumPlayers > 1 ) { Game->Player[1]->SetTexture( Game->EnemyTwoTexture.texID ); Game->Player[1]->SetDamageTexture( Game->EnemyTwoDamageTexture.texID ); }
+	if( Game->NumPlayers > 2 ) { Game->Player[2]->SetTexture( Game->EnemyTwoTexture.texID ); Game->Player[2]->SetDamageTexture( Game->EnemyTwoDamageTexture.texID ); }
+	
+	//clear previous level data
+	if(Game->Block)
+	{
+		for( int i = 0; i < Game->NumBlocks; i++ )
+		{
+			delete Game->Block[i];
+			Game->Block[i] = NULL;
+		}
+		delete[] Game->Block;
+		Game->Block = NULL;
+	}
+
+	if( Game->Polygons )  { delete[] Game->Polygons; Game->Polygons = NULL;}
+	if( Game->EnemyWave )	{ delete Game->EnemyWave; Game->EnemyWave = NULL;}
+
+	list< CSpecialItem* >::iterator i;
+	for( i = Game->PowerUps.begin(); i != Game->PowerUps.end(); i++ )
+	{
+		delete (*i);
+		(*i) = NULL;
+	}
+	Game->PowerUps.clear();
+
+	//start anew
+	Game->NumBlocks = 0;
+	
+	Game->EnemyWave = new CRandomLevelWave();
+	Game->EnemyWave->SetGame( Game );
+	
+
+	Game->CellsHigh = 9;
+	Game->CellsWide = 16;
+	Game->ArraySize = Game->CellsHigh*(Game->CellsWide-1)+Game->CellsWide*(Game->CellsHigh-1) + 4;
+	cameraz = 35;  //controls how zoomed in the game is
+	Game->ScreenX = -52.5f;
+	Game->ScreenY = -29.5f;
+	Game->ScreenHeight = Game->ScreenY-Game->ScreenY*2;
+	Game->ScreenWidth = Game->ScreenX-Game->ScreenX*2;
+	Game->CellHeight = Game->ScreenHeight*2/Game->CellsHigh;
+	Game->CellWidth = Game->ScreenWidth*2/Game->CellsWide;
+	Game->PolyHeight = 0.5f;
+	Game->PolyWidth = 0.5f;
+	Game->EnemyWave->Initialize();
+
+	//filling in the level data
+	bool* myArray = new bool[Game->ArraySize];
+	int counter = 0;
+	for( int i = 0; i < 4; i++ )
+	{ 
+		myArray[i] = true; 
+		counter++; 
+	}
+	
+	//grab the file name
+	stringstream chartest;
+	string s;
+	char* charpointer;
+	fstream levelData;
+
+	chartest.str("");
+	chartest << "Levels/Level" << m_iLevelToLoad << ".txt";
+	s = chartest.str();
+	charpointer = new char[s.size() +1];
+	std::copy(s.begin(), s.end() , charpointer );
+	charpointer[s.size()] = '\0';
+
+	//fill in the level data
+	levelData.open( charpointer );
+	if( levelData.is_open() )
+	{	
+		int  a;
+		bool b;
+		while ( levelData >> a >> b)
+		{
+			myArray[a] = b;
+			if( b )
+			{
+				counter++;
+			}
+		}
+		levelData.close();
+	}
+	else
+	{
+		levelData.close();
+	}
+	delete charpointer;
+	charpointer = NULL;
+
+	Game->NumPolygons = counter;
+	Game->Polygons = new CPolygon[Game->NumPolygons];
+	int PolyCounter = 4;
+
+	//level edges, there are 4 of them
+	float startx = Game->ScreenX;
+	float starty = Game->ScreenY;
+	Game->Polygons[0].NumVectors = 4-1;
+	Game->Polygons[0].AddVector();
+	Game->Polygons[0].Polygon[0] =  Vector2d(   startx-Game->PolyWidth, starty-Game->PolyHeight );
+	Game->Polygons[0].Polygon[1] =  Vector2d(   startx-Game->PolyWidth, starty+Game->PolyHeight );
+	Game->Polygons[0].Polygon[2] =  Vector2d(   Game->ScreenWidth+Game->PolyWidth, starty + Game->PolyHeight );
+	Game->Polygons[0].Polygon[3] =  Vector2d(   Game->ScreenWidth+Game->PolyWidth, starty - Game->PolyHeight );
+	Game->Polygons[0].SetBoundingBox();
+
+	startx = Game->ScreenX;
+	starty = Game->ScreenHeight;
+	Game->Polygons[1].NumVectors = 4-1;
+	Game->Polygons[1].AddVector();
+	Game->Polygons[1].Polygon[0] =  Vector2d(   startx-Game->PolyWidth, starty-Game->PolyHeight );
+	Game->Polygons[1].Polygon[1] =  Vector2d(   startx-Game->PolyWidth, starty+Game->PolyHeight );
+	Game->Polygons[1].Polygon[2] =  Vector2d(   Game->ScreenWidth+Game->PolyWidth, starty + Game->PolyHeight );//5 * 5.9f - 0.5f + 1 , starty     );
+	Game->Polygons[1].Polygon[3] =  Vector2d(   Game->ScreenWidth+Game->PolyWidth, starty - Game->PolyHeight );//5 * 5.9f - 0.5f + 1 , starty - 1 );
+	Game->Polygons[1].SetBoundingBox();
+
+	startx = Game->ScreenX;
+	starty = Game->ScreenY;
+	Game->Polygons[2].NumVectors = 4-1;
+	Game->Polygons[2].AddVector();
+	Game->Polygons[2].Polygon[0] =  Vector2d(   startx-Game->PolyWidth, starty-Game->PolyHeight );
+	Game->Polygons[2].Polygon[1] =  Vector2d(   startx-Game->PolyWidth, Game->ScreenHeight + Game->PolyHeight );
+	Game->Polygons[2].Polygon[2] =  Vector2d(   startx+Game->PolyWidth, Game->ScreenHeight + Game->PolyHeight );
+	Game->Polygons[2].Polygon[3] =  Vector2d(   startx+Game->PolyWidth, starty-Game->PolyHeight );
+	Game->Polygons[2].SetBoundingBox();
+
+	startx = Game->ScreenWidth;
+	starty = Game->ScreenY;
+	Game->Polygons[3].NumVectors = 4-1;
+	Game->Polygons[3].AddVector();
+	Game->Polygons[3].Polygon[0] =  Vector2d(   startx-Game->PolyWidth, starty-Game->PolyHeight );
+	Game->Polygons[3].Polygon[1] =  Vector2d(   startx-Game->PolyWidth, Game->ScreenHeight + Game->PolyHeight );
+	Game->Polygons[3].Polygon[2] =  Vector2d(   startx+Game->PolyWidth, Game->ScreenHeight + Game->PolyHeight );
+	Game->Polygons[3].Polygon[3] =  Vector2d(   startx+Game->PolyWidth, starty-Game->PolyHeight );//startx + 1 , (-3) * 5.41666 + 0.5f - 1 );
+	Game->Polygons[3].SetBoundingBox();
+
+
+	bool life = false;
+	float left;
+	float right;
+	float up;
+	float down;
+	float dev = 0.4f;
+
+	//horizontal poly's in the level
+	for( int i = 4; i < Game->CellsWide*(Game->CellsHigh-1)+4; i++ )
+	{
+		if( myArray[i] == false ) { continue; } //no poly here
+		int j = PolyCounter;
+		float startx, starty = 0;
+		life = true;
+
+		startx = ((i-4)%Game->CellsWide)*(Game->CellWidth) + Game->ScreenX + Game->CellWidth/2;
+		starty = ((i-4)/Game->CellsWide)*(Game->CellHeight) + Game->ScreenY+Game->CellHeight;
+		left = -Game->PolyWidth - Game->CellWidth/2;
+		right = Game->CellWidth+Game->PolyWidth - Game->CellWidth/2;
+		up = Game->PolyHeight;
+		down = -Game->PolyHeight;
+
+		Game->Polygons[j].NumVectors = 4-1;
+		Game->Polygons[j].AddVector();
+		Game->Polygons[j].Pos = Vector2d( startx , starty );
+		Game->Polygons[j].SetTexture( Game->LevelLineTexture.texID );
+		Game->Polygons[j].SetRadius( 3.8f );
+		Game->Polygons[j].Polygon[0] =  Vector2d(   left, down );
+		Game->Polygons[j].Polygon[1] =  Vector2d(   left, up );
+		Game->Polygons[j].Polygon[2] =  Vector2d(   right, up );
+		Game->Polygons[j].Polygon[3] =  Vector2d(   right, down );
+		Game->Polygons[j].SetCollision( true );
+		Game->Polygons[j].SetBoundingBox();
+		PolyCounter++;
+	}
+
+	//vertical poly's
+	for( int i = Game->CellsWide*(Game->CellsHigh-1)+4; i < Game->ArraySize; i++ )
+	{
+		if( myArray[i] == false ) { continue; }
+		int j = PolyCounter;
+		float startx, starty = 0;
+		life = true;
+		int start = i-((Game->CellsWide*(Game->CellsHigh-1))+4);
+
+		startx = (start%(Game->CellsWide-1))*Game->CellWidth + Game->ScreenX+Game->CellWidth;
+		starty = (start/(Game->CellsWide-1))*Game->CellHeight + Game->ScreenY + Game->CellHeight/2;
+		left = -Game->PolyWidth;
+		right = Game->PolyWidth;
+		up = Game->CellHeight + Game->PolyHeight - Game->CellHeight/2;
+		down = -Game->PolyHeight - Game->CellHeight/2;
+		Game->Polygons[j].NumVectors = 4-1;
+		Game->Polygons[j].AddVector();
+		Game->Polygons[j].Pos = Vector2d( startx , starty );
+		Game->Polygons[j].SetTexture( Game->LevelUTexture.texID );
+		Game->Polygons[j].SetRadius( 3.8f );
+		Game->Polygons[j].Polygon[0] =  Vector2d(   left, down );
+		Game->Polygons[j].Polygon[1] =  Vector2d(   left, up );
+		Game->Polygons[j].Polygon[2] =  Vector2d(   right, up );
+		Game->Polygons[j].Polygon[3] =  Vector2d(   right, down );
+		Game->Polygons[j].SetCollision( true );
+		Game->Polygons[j].SetBoundingBox();
+		PolyCounter++;
+	}
+
+	delete[] myArray;
+
+
+	//position the players
+	for( int i = 0; i < Game->NumPlayers; i++ )
+	{
+		float x = Game->ScreenX + Game->CellWidth/2 + (rand()%Game->CellsWide)*Game->CellWidth;
+		float y = Game->ScreenY + Game->CellHeight/2 + (rand()%Game->CellsHigh)*Game->CellHeight;
+		Game->Player[i]->SetPos( x , y );
+		Game->Player[i]->SetOldPos( Game->Player[i]->GetPosX(), Game->Player[i]->GetPosY()-0.01f );
+	}
+
+	//set up path finding
+	Game->NodeManager.Initialize();
+	Game->NodeManager.SetUpNodes();
+	Vector2d start,end;
+	start.x = Game->EnemyWave->Enemy[0]->GetPosX();
+	start.y = Game->EnemyWave->Enemy[0]->GetPosY();
+	end = Vector2d( Game->Player[0]->GetPosX() , Game->Player[0]->GetPosY() );
+	Game->NodeManager.CalculatePath( start , end , Game->EnemyWave->Enemy[0] );
+
+	Game->LevelTimer = 0;
+
+	Game->WorldEdge = -Game->ScreenX*1.2f;
+	
+	Game->FriendlyFire = true;
+}

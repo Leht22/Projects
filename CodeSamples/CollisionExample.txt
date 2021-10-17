@@ -1,0 +1,24 @@
+//balls moving toward a triangle will bounce off if they hit
+//doesn't take into account ball size yet, only their path
+
+glm::vec3 intersectPoint;
+
+//bullet collisions with the triangles
+for( int i = 0; i < numTriangles; i++ ) //for each triangle
+{
+	for( int j = 0; j < Player.primaryWeapon.numBullets; j++ ) //for each bullet
+	{
+		if( Player.primaryWeapon.bullets[j].isAlive ) //if the bullet is alive
+		{
+			bool collided = lineTriangleIntersect( Player.primaryWeapon.bullets[j].old , Player.primaryWeapon.bullets[j].pos , triangle[i] , intersectPoint );
+					
+			if( collided )
+			{ 
+				cout << "collision of bullet " << j << "at point " << intersectPoint.x << " " << intersectPoint.y << " " << intersectPoint.z << endl;
+				Player.primaryWeapon.bullets[j].vel = glm::normalize( reflect( Player.primaryWeapon.bullets[j].pos - Player.primaryWeapon.bullets[j].old , triangle[i].normal ) );
+				Player.primaryWeapon.bullets[j].pos = intersectPoint + Player.primaryWeapon.bullets[j].vel * glm::length( Player.primaryWeapon.bullets[j].pos - intersectPoint );
+				//Player.primaryWeapon.bullets[j].despawn(); //if we just want to destroy the bullet instead
+			}
+		}//endif alive
+	}//next bullet
+}//next triangle

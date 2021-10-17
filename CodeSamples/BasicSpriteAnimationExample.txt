@@ -1,0 +1,29 @@
+//render the next arrow on the dialog box
+
+glActiveTexture(GL_TEXTURE0);
+glBindTexture( GL_TEXTURE_2D , ArrowMap );
+
+frame = int( particleTimer * particleFrames / particleAnimationLength );
+float ptop = frame * (1.0f/particleFrames);
+float pbot = ptop + (1.0f/particleFrames);
+
+particleVerts[3] = 0.0f;	//Left
+particleVerts[4] = ptop;        //Top
+particleVerts[8] = 0.0f;	//Left
+particleVerts[9] = pbot;	//Bottom
+particleVerts[13] = 0.5f;       //Right
+particleVerts[14] = ptop;	//Top
+particleVerts[18] = 0.5f;       //Right
+particleVerts[19] = pbot;	//Bottom
+
+glBufferSubData( GL_ARRAY_BUFFER , 0 , sizeof(particleVerts) , particleVerts );
+
+world = glm::mat4(1.0f);
+world = glm::translate( world , glm::vec3( 3.6f , -2.8f , -5.0f ) );
+world = glm::rotate( world , (float)glm::radians(90.0f) , glm::vec3( 0 , 0 , -1 ) );
+world = glm::scale( world , glm::vec3( 0.3f , 0.3f , 1.0f ) );
+alpha = 1.0f;
+
+particleShader.setMat4( "world" , world );
+particleShader.setFloat( "alpha" , alpha );
+glDrawArrays( GL_TRIANGLE_STRIP , 0 , 4 );
