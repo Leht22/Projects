@@ -1,3 +1,5 @@
+//I don't take credit for this code, I found it online and it's super useful and wanted to share
+
 #ifndef FASTCONDITIONS_H
 #define FASTCONDITIONS_H
 
@@ -30,17 +32,20 @@ glm::vec4 when_ltv4(glm::vec4 x, glm::vec4 y)
 }
 
 //when greater than
-float when_gt( float x, float y) {
+float when_gt( float x, float y) 
+{
 	return glm::max(glm::sign(x - y), 0.0f);
 }
 
 //when greater than or equal to
-float when_ge(float x, float y) {
+float when_ge(float x, float y) 
+{
 	return 1.0f - when_lt(x, y);
 }
 
 //when less than or equal to
-float when_le(float x, float y) {
+float when_le(float x, float y) 
+{
 	return 1.0f - when_gt(x, y);
 }
 
@@ -51,14 +56,10 @@ float when_eq( float x , float y)
 }
 
 //when not equal to
-float when_neq(float x, float y) {
+float when_neq(float x, float y) 
+{
 	return glm::abs(glm::sign(x - y));
 }
-
-
-
-
-
 
 
 #endif
